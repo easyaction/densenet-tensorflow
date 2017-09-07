@@ -1,9 +1,9 @@
 import tensorflow as tf
 
 
-def weight_variable(shape, mean=0.0, stddev=1.0):
+def weight_variable(shape, name=None, mean=0.0, stddev=1.0):
     return tf.get_variable(
-        "weight",
+        "%s/weight" % name,
         shape=shape,
         initializer=tf.truncated_normal_initializer(mean=mean, stddev=stddev),
         dtype=tf.float32
@@ -12,9 +12,9 @@ def weight_variable(shape, mean=0.0, stddev=1.0):
 def global_avg_pool(input_tensor):
     return tf.reduce_mean(input_tensor,[1,2])
 
-def bias_variable(shape):
+def bias_variable(shape, name=None):
     return tf.get_variable(
-        "bias",
+        "%s/bias" % name,
         shape=shape,
         initializer=tf.constant_initializer(0.0),
         dtype=tf.float32
