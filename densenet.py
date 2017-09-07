@@ -39,6 +39,7 @@ def classification_layer(input_tensor,num_classes, name, keep_prob, is_training=
         output_t = global_avg_pool(output_t)
         output_t = tf.reshape(output_t, shape=[-1,num_classes])
         w_fc = weight_variable(output_t.get_shape().tolist(),name="fc")
+        b_fc = bias_variable(num_classes,name="fc")
 
 
 def dense_block(input_tensor, l, k, keep_prob, name):
