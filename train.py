@@ -2,6 +2,9 @@ import tensorflow as tf
 from densenet import *
 from cifar_loader import *
 
+from loader import *
+from uniform_loader import *
+
 import shutil
 import collections
 
@@ -28,10 +31,11 @@ print("Learning rate = %e" % FLAGS.lr)
 class Train:
     def __init__(self):
         self.img_info = cifar10_image_info
-        self.model = Model(batch_size=FLAGS.batch_size, image_info=self.img_info)
+
 
         self.data_path = FLAGS.data_path
         self.batch_size = FLAGS.batch_size
+        self.num_classes = FLAGS.num_classes
 
         self.lr = FLAGS.lr
         self.lr_decay_interval = FLAGS.lr_decay_interval
@@ -40,38 +44,40 @@ class Train:
         self.valid_log_interval = FLAGS.valid_log_interval
 
         # NOTE : Data = CIFAR-10
-        # shutil.rmtree(FLAGS.data_path, ignore_errors=True)
-        # os.mkdir(FLAGS.data_path)
-        # split_dataset(os.path.join(self.data_path, "train"), "data/sampled_train", ratio=0.02)
-        # self.train_labeled_loader = UniformLoader(
-        #     data_path="data/sampled_train",
-        #     image_info=self.img_info,
-        #     default_batch_size=self.batch_size)
-        # self.train_unlabeled_loader = UniformLoader(
-        #     data_path=os.path.join(self.data_path, "train"),
-        #     image_info=self.img_info,
-        #     default_batch_size=self.batch_size)
-        # self.valid_loader = Loader(
-        #     data_path=os.path.join(self.data_path, "val"),
-        #     image_info=self.img_info,
-        #     default_batch_size=self.batch_size)
+        shutil.rmtree(FLAGS.data_path, ignore_errors=True)
+        os.mkdir(FLAGS.data_path)
+        split_dataset(os.path.join(self.data_path, "train"), "data/sampled_train", ratio=0.02)
+        self.train_labeled_loader = UniformLoader(
+            data_path="data/sampled_train",
+            image_info=self.img_info,
+            default_batch_size=self.batch_size)
+        self.train_unlabeled_loader = UniformLoader(
+            data_path=os.path.join(self.data_path, "train"),
+            image_info=self.img_info,
+            default_batch_size=self.batch_size)
+        self.valid_loader = Loader(
+            data_path=os.path.join(self.data_path, "val"),
+            image_info=self.img_info,
+            default_batch_size=self.batch_size)
 
         # NOTE : Data = MNIST
-        self.train_labeled_loader = MnistLoader(
-            data_path=self.data_path,
-            default_batch_size=self.batch_size,
-            image_info=self.img_info,
-            dataset="test")
-        self.train_unlabeled_loader = MnistLoader(
-            data_path=self.data_path,
-            default_batch_size=self.batch_size,
-            image_info=self.img_info,
-            dataset="train")
-        self.valid_loader = MnistLoader(
-            data_path=self.data_path,
-            default_batch_size=self.batch_size,
-            image_info=self.img_info,
-            dataset="validation")
+        # self.train_labeled_loader = MnistLoader(
+        #     data_path=self.data_path,
+        #     default_batch_size=self.batch_size,
+        #     image_info=self.img_info,
+        #     dataset="test")
+        # self.train_unlabeled_loader = MnistLoader(
+        #     data_path=self.data_path,
+        #     default_batch_size=self.batch_size,
+        #     image_info=self.img_info,
+        #     dataset="train")
+        # self.valid_loader = MnistLoader(
+        #     data_path=self.data_path,
+        #     default_batch_size=self.batch_size,
+        #     image_info=self.img_info,
+        #     dataset="validation")
+
+        self.model = DenseNet(batch_size=self.batch_size,num_classes=self.num_classes, keep_prob=1.0)
 
         self.sess = tf.Session()
 
