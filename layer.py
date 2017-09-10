@@ -9,9 +9,6 @@ def weight_variable(shape, name=None, mean=0.0, stddev=1.0):
         dtype=tf.float32
     )
 
-def global_avg_pool(input_tensor):
-    return tf.reduce_mean(input_tensor,[1,2])
-
 def bias_variable(shape, name=None):
     return tf.get_variable(
         "%s/bias" % name,
