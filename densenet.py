@@ -18,7 +18,7 @@ class DenseNet(object):
         self.image_info = image_info
 
         self.image_placeholder = tf.placeholder(
-            dtype=tf.uint8,
+            dtype=tf.float32,
             shape=[self.batch_size, self.image_info.height, self.image_info.width, self.image_info.channel],
             name="image_placeholder")
 
@@ -55,7 +55,7 @@ class DenseNet(object):
             # FIX IT : temporary batch_norm with contrib
             output_t = tf.contrib.layers.batch_norm(output_t, scale=True, is_training=is_training, updates_collections=None)
             output_t = tf.nn.relu(output_t)
-            output_t = conv2d(output_t, [3, 3, in_channels, out_channels], name="3x3conv")
+            output_t = conv2d(output_t, [3, 3, 4 * out_channels, out_channels], name="3x3conv")
             output_t = tf.nn.dropout(output_t, self.keep_prob)
         return output_t
 
