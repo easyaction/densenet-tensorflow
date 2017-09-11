@@ -27,16 +27,16 @@ class DenseNet(object):
                                                   name="target_placeholder")
 
         logits = self.build_densenet(self.image_placeholder)
-        prediction = tf.nn.softmax(logits)
+        self.prediction = tf.nn.softmax(logits)
 
-        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=self.target_placeholder))
-        l2_loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables()])
+        self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=self.target_placeholder))
+        self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables()])
 
-        self.train_step = tf.train.MomentumOptimizer(
+        self.train_op = tf.train.MomentumOptimizer(
             self.lr_placeholder,self.nesterov_momentum,use_nesterov=True
-        ).minimize(cost + l2_loss * self.weight_decay, global_step=self.global_step)
+        ).minimize(self.cost + self.loss * self.weight_decay, global_step=self.global_step)
 
-        correct_prediction = tf.equal(tf.argmax(prediction,1),tf.arg_max(self.target_placeholder,1))
+        correct_prediction = tf.equal(tf.argmax(self.prediction,1),tf.arg_max(self.target_placeholder,1))
 
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
 

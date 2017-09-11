@@ -1,17 +1,20 @@
 import tensorflow as tf
 from densenet import *
-from cifar_loader import *
+import cifar_loader
 
-from loader import *
-from uniform_loader import *
+# from loader import *
+# from uniform_loader import *
+# from cifar_loader import *
 
-import shutil
+import shutil, os
 import collections
 
-tf.app.flags.DEFINE_string('data_path', 'data', 'Directory path to read the data files')
+tf.app.flags.DEFINE_string('data_path', './dataset', 'Directory path to read the data files')
 tf.app.flags.DEFINE_string('checkpoint_path', 'model', 'Directory path to save checkpoint files')
 
 tf.app.flags.DEFINE_integer('batch_size', 100, 'mini-batch size for training')
+tf.app.flags.DEFINE_boolean('use_fp16',False,'using tf.float16 in dataset')
+tf.app.flags.DEFINE_boolean('num_classes',10,'using tf.float16 in dataset')
 
 tf.app.flags.DEFINE_float('lr', 1e-4, 'initial learning rate')
 tf.app.flags.DEFINE_float('lr_decay_ratio', 0.95, 'ratio for decaying learning rate')
@@ -32,7 +35,6 @@ class Train:
     def __init__(self):
         self.img_info = cifar10_image_info
 
-
         self.data_path = FLAGS.data_path
         self.batch_size = FLAGS.batch_size
         self.num_classes = FLAGS.num_classes
@@ -43,22 +45,26 @@ class Train:
         self.train_log_interval = FLAGS.train_log_interval
         self.valid_log_interval = FLAGS.valid_log_interval
 
+
+
         # NOTE : Data = CIFAR-10
-        shutil.rmtree(FLAGS.data_path, ignore_errors=True)
-        os.mkdir(FLAGS.data_path)
-        split_dataset(os.path.join(self.data_path, "train"), "data/sampled_train", ratio=0.02)
-        self.train_labeled_loader = UniformLoader(
-            data_path="data/sampled_train",
-            image_info=self.img_info,
-            default_batch_size=self.batch_size)
-        self.train_unlabeled_loader = UniformLoader(
-            data_path=os.path.join(self.data_path, "train"),
-            image_info=self.img_info,
-            default_batch_size=self.batch_size)
-        self.valid_loader = Loader(
-            data_path=os.path.join(self.data_path, "val"),
-            image_info=self.img_info,
-            default_batch_size=self.batch_size)
+        # shutil.rmtree(FLAGS.data_path, ignore_errors=True)
+        # os.mkdir(FLAGS.data_path)
+        # split_dataset(os.path.join(self.data_path, "train"), "data/sampled_train", ratio=0.02)
+        # self.train_loader = UniformLoader(
+        #     data_path="./",
+        #     image_info=self.img_info,
+        #     default_batch_size=self.batch_size)
+        # self.train_unlabeled_loader = UniformLoader(
+        #     data_path=os.path.join(self.data_path, "train"),
+        #     image_info=self.img_info,
+        #     default_batch_size=self.batch_size)
+        # self.valid_loader = Loader(
+        #     data_path=os.path.join(self.data_path, "val"),
+        #     image_info=self.img_info,
+        #     default_batch_size=self.batch_size)
+
+
 
         # NOTE : Data = MNIST
         # self.train_labeled_loader = MnistLoader(
@@ -97,26 +103,58 @@ class Train:
 
         self.summ = tf.summary.merge_all()
 
+    def distorted_inputs(self):
+        """Construct distorted input for CIFAR training using the Reader ops.
+        Returns:
+          images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
+          labels: Labels. 1D tensor of [batch_size] size.
+        Raises:
+          ValueError: If no data_dir
+        """
+        if not FLAGS.data_path:
+            raise ValueError('Please supply a data_dir')
+        data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+        images, labels = cifar_loader.distorted_inputs(data_dir=data_dir,
+                                                        batch_size=FLAGS.batch_size)
+        if FLAGS.use_fp16:
+            images = tf.cast(images, tf.float16)
+            labels = tf.cast(labels, tf.float16)
+        return images, labels
+
+    def inputs(self,eval_data):
+        """Construct input for CIFAR evaluation using the Reader ops.
+        Args:
+          eval_data: bool, indicating if one should use the train or eval data set.
+        Returns:
+          images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
+          labels: Labels. 1D tensor of [batch_size] size.
+        Raises:
+          ValueError: If no data_dir
+        """
+        if not FLAGS.data_dir:
+            raise ValueError('Please supply a data_dir')
+        data_dir = os.path.join(FLAGS.data_path, 'cifar-10-batches-bin')
+        images, labels = cifar_loader.inputs(eval_data=eval_data,
+                                              data_dir=data_dir,
+                                              batch_size=FLAGS.batch_size)
+        if FLAGS.use_fp16:
+            images = tf.cast(images, tf.float16)
+            labels = tf.cast(labels, tf.float16)
+        return images, labels
+
     def train(self):
-        accum_loss = .0
-        accum_correct_count = .0
-        accum_conf_matrix = None
-        self.train_labeled_loader.reset()
-        self.train_unlabeled_loader.reset()
+        # self.train_loader.reset()
+
         while True:
-            batch_labeled_data = self.train_labeled_loader.get_batch()
-            batch_unlabeled_data = self.train_unlabeled_loader.get_batch()
-            if (batch_labeled_data is None) or (batch_unlabeled_data is None):
-                continue
+            # batch_data = self.train_loader.get_batch()
+            self.images, self.labels = cifar_loader.distorted_inputs()
+            # if (batch_data is None):
+            #     continue
 
             sess_input = [
                 self.model.train_op,
                 self.model.loss,
-                self.model.walker_loss,
-                self.model.visit_loss,
-                self.model.cls_loss,
-                self.model.correct_count,
-                self.model.conf_matrix,
+                self.model.accuracy,
                 self.summ,
                 self.model.global_step,
             ]
@@ -124,27 +162,19 @@ class Train:
                 fetches=sess_input,
                 feed_dict={
                     self.model.lr_placeholder: self.lr,
-                    self.model.labeled_image_ph: batch_labeled_data.images,
-                    self.model.label_ph: batch_labeled_data.labels,
-                    self.model.unlabeled_image_ph: batch_unlabeled_data.images,
+                    self.model.image_placeholder: self.images,
+                    self.model.target_placeholder: self.labels,
                 }
             )
 
             cur_step = sess_output[-1]
-            accum_loss += sess_output[1]
-            accum_correct_count += sess_output[-4]
-            if accum_conf_matrix is None:
-                accum_conf_matrix = sess_output[-3]
-            else:
-                accum_conf_matrix += sess_output[-3]
+            loss = sess_output[1]
+            accuracy = sess_output[2]
 
             self.train_summary_writer.add_summary(sess_output[-2], cur_step)
             self.train_summary_writer.flush()
 
             if cur_step > 0 and cur_step % self.train_log_interval == 0:
-
-                loss = accum_loss / self.train_log_interval
-                accuracy = accum_correct_count / (self.batch_size * self.train_log_interval)
 
                 print("[step %d] training loss = %f, accuracy = %.6f, lr = %.6f" % (cur_step, loss, accuracy, self.lr))
                 # log for tensorboard
@@ -156,60 +186,49 @@ class Train:
                 self.train_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
                 self.train_summary_writer.flush()
 
-                # reset local accumulations
-                accum_loss = .0
-                accum_correct_count = .0
-                accum_conf_matrix = None
-
-            if cur_step > 0 and cur_step % self.valid_log_interval == 0:
-                self.valid_loader.reset()
-
-                step_counter = .0
-                valid_accum_cls_loss = .0
-                valid_accum_correct_count = .0
-                valid_accum_conf_matrix = None
-
-                while True:
-                    batch_labeled_data = self.valid_loader.get_batch()
-                    if batch_labeled_data is None:
-                        # print('%d validation complete' % self.epoch_counter)
-                        break
-
-                    sess_input = [
-                        self.model.cls_loss,
-                        self.model.correct_count,
-                        self.model.conf_matrix,
-                    ]
-                    sess_output = self.sess.run(
-                        fetches=sess_input,
-                        feed_dict={
-                            self.model.labeled_image_ph: batch_labeled_data.images,
-                            self.model.label_ph: batch_labeled_data.labels,
-                        }
-                    )
-
-                    valid_accum_cls_loss += sess_output[0]
-                    valid_accum_correct_count += sess_output[-2]
-                    if valid_accum_conf_matrix is None:
-                        valid_accum_conf_matrix = sess_output[-1]
-                    else:
-                        valid_accum_conf_matrix += sess_output[-1]
-
-                    step_counter += 1
-
-                cur_valid_loss = valid_accum_cls_loss / step_counter
-                cur_valid_accuracy = valid_accum_correct_count / (step_counter * self.batch_size)
-
-                # log for tensorboard
-                cur_step = self.sess.run(self.model.global_step)
-                custom_summaries = [
-                    tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
-                    tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
-                ]
-                self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
-                self.valid_summary_writer.flush()
-
-                print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+            #     # reset local accumulations
+            #     accum_loss = .0
+            #     accum_correct_count = .0
+            #     accum_conf_matrix = None
+            #
+            # if cur_step > 0 and cur_step % self.valid_log_interval == 0:
+            #     self.valid_loader.reset()
+            #
+            #     step_counter = .0
+            #     valid_accum_cls_loss = .0
+            #     valid_accum_correct_count = .0
+            #     valid_accum_conf_matrix = None
+            #
+            #     while True:
+            #         batch_data = self.valid_loader.get_batch()
+            #         if batch_data is None:
+            #             # print('%d validation complete' % self.epoch_counter)
+            #             break
+            #
+            #         sess_input = [
+            #             self.model.loss,
+            #             self.model.accuracy,
+            #         ]
+            #         sess_output = self.sess.run(
+            #             fetches=sess_input,
+            #             feed_dict={
+            #                 self.model.image_placeholder: batch_data.images,
+            #                 self.model.target_placeholder: batch_data.labels,
+            #             }
+            #         )
+            #
+            #
+            #
+            #     # log for tensorboard
+            #     cur_step = self.sess.run(self.model.global_step)
+            #     custom_summaries = [
+            #         tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
+            #         tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
+            #     ]
+            #     self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
+            #     self.valid_summary_writer.flush()
+            #
+            #     print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
 
             if cur_step > 0 and cur_step % self.lr_decay_interval == 0:
                 self.lr *= self.lr_decay_ratio
@@ -217,6 +236,7 @@ class Train:
 
 def main(argv):
     learner = Train()
+    learner.train()
     return
 
 if __name__ == '__main__':
