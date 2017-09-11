@@ -69,7 +69,7 @@ class Train:
         #     image_info=self.img_info,
         #     dataset="validation")
 
-        self.model = DenseNet(batch_size=self.batch_size,num_classes=self.num_classes, keep_prob=1.0)
+        self.model = DenseNet(batch_size=self.batch_size,num_classes=self.num_classes, keep_prob=1.0,image_info=cifar10_image_info, growth_rate=12)
 
         self.sess = tf.Session()
 
