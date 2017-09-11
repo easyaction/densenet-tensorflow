@@ -43,20 +43,21 @@ class DenseNet(object):
 
 
 
-    def bottleneck_layer(self,input_tensor, in_channels, out_channels, name, is_training=True):
+    def bottleneck_composite_layer(self,input_tensor, in_channels, out_channels, name, is_training=True):
         with tf.variable_scope(name):
             # FIX IT : temporary batch_norm with contrib
-            output_t = tf.contrib.layers.batch_norm(input_tensor, scale=True, is_training=is_training,
-                                                    updates_collections=None)
-            output_t = tf.nn.relu(output_t)
-            output_t = conv2d(output_t, [1, 1, in_channels, 4 * out_channels], name="1x1conv")
-            output_t = tf.nn.dropout(output_t, self.keep_prob)
-
+            with tf.variable_scope("bottleneckL"):
+                output_t = tf.contrib.layers.batch_norm(input_tensor, scale=True, is_training=is_training,
+                                                        updates_collections=None)
+                output_t = tf.nn.relu(output_t)
+                output_t = conv2d(output_t, [1, 1, in_channels, 4 * out_channels], name="1x1conv")
+                output_t = tf.nn.dropout(output_t, self.keep_prob)
+            with tf.variable_scope("compositeL"):
             # FIX IT : temporary batch_norm with contrib
-            output_t = tf.contrib.layers.batch_norm(output_t, scale=True, is_training=is_training, updates_collections=None)
-            output_t = tf.nn.relu(output_t)
-            output_t = conv2d(output_t, [3, 3, 4 * out_channels, out_channels], name="3x3conv")
-            output_t = tf.nn.dropout(output_t, self.keep_prob)
+                output_t = tf.contrib.layers.batch_norm(output_t, scale=True, is_training=is_training, updates_collections=None)
+                output_t = tf.nn.relu(output_t)
+                output_t = conv2d(output_t, [3, 3, 4 * out_channels, out_channels], name="3x3conv")
+                output_t = tf.nn.dropout(output_t, self.keep_prob)
         return output_t
 
     def transition_layer(self,input_tensor, in_channels, name, c_rate, is_training=True):
@@ -87,7 +88,7 @@ class DenseNet(object):
             output_t = input_tensor
             in_channels = input_tensor.get_shape()[-1]
             for i in range(0, l):
-                temp = self.bottleneck_layer(output_t, in_channels=in_channels, out_channels=k, name="bottleN_%d" % l,
+                temp = self.bottleneck_composite_layer(output_t, in_channels=in_channels, out_channels=k, name="bottle_composite_%d" % l,
                                          is_training=is_training)
                 output_t = tf.concat([output_t, temp], axis=3)
                 in_channels += k
