@@ -113,11 +113,6 @@ class DenseNet(object):
 
         output_t, out_channels = self.dense_block(output_t, l=24, k=self.growth_rate, name="denseB_%d" % 3,
                                                   is_training=is_training)
-        output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 3,
-                                         is_training=is_training)
-
-        output_t, out_channels = self.dense_block(output_t, l=16, k=self.growth_rate, name="denseB_%d" % 4,
-                                                  is_training=is_training)
 
         logits = self.classification_layer(output_t, name="classL", keep_prob=self.keep_prob, is_training=is_training)
 
