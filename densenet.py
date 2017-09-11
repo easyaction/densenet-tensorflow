@@ -64,7 +64,7 @@ class DenseNet(object):
             output_t = tf.contrib.layers.batch_norm(input_tensor, scale=True, is_training=is_training,
                                                     updates_collections=None)
             output_t = tf.nn.relu(output_t)
-            output_t = conv2d(output_t, [1, 1, in_channels, int(in_channels * c_rate)], name="1x1conv")
+            output_t = conv2d(output_t, [1, 1, in_channels, int(int(in_channels) * c_rate)], name="1x1conv")
             output_t = tf.nn.dropout(output_t, self.keep_prob)
             output_t = tf.nn.avg_pool(output_t, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding="VALID",
                                       name="avg_pool")
