@@ -77,8 +77,8 @@ class DenseNet(object):
             output_t = tf.nn.relu(output_t)
             last_pool_k = int(output_t.get_shape()[-2])
             output_t = tf.nn.avg_pool(output_t, ksize=[1, last_pool_k, last_pool_k, 1],strides=[1,last_pool_k,last_pool_k,1],padding="VALID")
-            output_t = tf.reshape(output_t, shape=[-1, self.num_classes])
-            w_fc = weight_variable(output_t.get_shape().tolist(), name="fc")
+            output_t = tf.reshape(output_t, shape=[-1, output_t.get_shape()[-1]])
+            w_fc = weight_variable([output_t.get_shape()[-1],self.num_classes], name="fc")
             b_fc = bias_variable(self.num_classes, name="fc")
             logits = tf.add(tf.matmul(output_t, w_fc), b_fc)
         return logits
