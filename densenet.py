@@ -22,7 +22,7 @@ class DenseNet(object):
             shape=[self.batch_size, self.image_info.height, self.image_info.width, self.image_info.channel],
             name="image_placeholder")
 
-        self.target_placeholder = tf.placeholder(dtype=tf.uint64,
+        self.target_placeholder = tf.placeholder(dtype=tf.uint8,
                                                   shape=[self.batch_size,],
                                                   name="target_placeholder")
 
@@ -88,7 +88,7 @@ class DenseNet(object):
             in_channels = input_tensor.get_shape()[-1]
             for i in range(0, l):
                 temp = self.bottleneck_layer(output_t, in_channels=in_channels, out_channels=k, name="bottleN_%d" % l,
-                                        keep_prob=self.keep_prob, is_training=is_training)
+                                         is_training=is_training)
                 output_t = tf.concat([output_t, temp], axis=3)
                 in_channels += k
         return output_t, in_channels
@@ -96,21 +96,21 @@ class DenseNet(object):
     def build_densenet(self,input_tensor,is_training=True, name="densenet"):
         in_channels = input_tensor.get_shape()[3]
 
-        output_t = conv2d(input_tensor, [7, 7, in_channels, 16], strides=2, padding="SAME", name="conv0")
+        output_t = conv2d(input_tensor, [7, 7, in_channels, 16], stride_size=2, padding="SAME", name="conv0")
         output_t = tf.nn.max_pool(output_t, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID", name="max_pool0")
 
-        output_t, out_channels = self.dense_block(output_t, l=6, k=self.growth_rate, keep_prob=self.keep_prob, name="denseB_%d" % 1, is_training=is_training)
+        output_t, out_channels = self.dense_block(output_t, l=6, k=self.growth_rate, name="denseB_%d" % 1, is_training=is_training)
         output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 1, is_training=is_training)
 
-        output_t, out_channels = self.dense_block(output_t, l=12, k=self.growth_rate, keep_prob=self.keep_prob, name="denseB_%d" % 2, is_training=is_training)
+        output_t, out_channels = self.dense_block(output_t, l=12, k=self.growth_rate, name="denseB_%d" % 2, is_training=is_training)
         output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 2, is_training=is_training)
 
-        output_t, out_channels = self.dense_block(output_t, l=24, k=self.growth_rate, keep_prob=self.keep_prob, name="denseB_%d" % 3, is_training=is_training)
+        output_t, out_channels = self.dense_block(output_t, l=24, k=self.growth_rate, name="denseB_%d" % 3, is_training=is_training)
         output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 3, is_training=is_training)
 
-        output_t, out_channels = self.dense_block(output_t, l=16, k=self.growth_rate, keep_prob=self.keep_prob, name="denseB_%d" % 4, is_training=is_training)
+        output_t, out_channels = self.dense_block(output_t, l=16, k=self.growth_rate, name="denseB_%d" % 4, is_training=is_training)
 
-        logits = self.classification_layer(output_t,num_classes=self.num_classes,name="classL",keep_prob=self.keep_prob,is_training=is_training)
+        logits = self.classification_layer(output_t,name="classL",keep_prob=self.keep_prob,is_training=is_training)
 
         return logits
 
