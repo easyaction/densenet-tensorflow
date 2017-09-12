@@ -24,7 +24,7 @@ class DenseNet(object):
             name="image_placeholder")
 
         self.target_placeholder = tf.placeholder(dtype=tf.uint8,
-                                                 shape=[self.batch_size, ],
+                                                 shape=[self.batch_size,self.num_classes],
                                                  name="target_placeholder")
 
         logits = self.build_densenet(self.image_placeholder)
