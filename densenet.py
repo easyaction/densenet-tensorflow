@@ -24,14 +24,14 @@ class DenseNet(object):
             name="image_placeholder")
 
         self.target_placeholder = tf.placeholder(dtype=tf.uint8,
-                                                 shape=[self.batch_size,self.num_classes],
+                                                 shape=[None],
                                                  name="target_placeholder")
 
         logits = self.build_densenet(self.image_placeholder)
         self.prediction = tf.nn.softmax(logits)
 
         self.cost = tf.reduce_mean(
-            tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
+            tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
         self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables()])
 
         self.train_op = tf.train.MomentumOptimizer(

@@ -46,8 +46,8 @@ class Train:
 
 
         # NOTE : Data = CIFAR-10
-        train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
-        valid_loader = Cifar10Loader(data_path=os.path.join("data/val"), default_batch_size=self.batch_size)
+        self.train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
+        self.valid_loader = Cifar10Loader(data_path=os.path.join("data/val"), default_batch_size=self.batch_size)
 
 
 
