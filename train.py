@@ -102,7 +102,7 @@ class Train:
                 self.model.train_op,
                 self.model.loss,
                 self.model.accuracy,
-                self.summ,
+                # self.summ,
                 self.model.global_step,
             ]
             sess_output = self.sess.run(
@@ -118,20 +118,20 @@ class Train:
             loss = sess_output[1]
             accuracy = sess_output[2]
 
-            self.train_summary_writer.add_summary(sess_output[-2], cur_step)
-            self.train_summary_writer.flush()
+            # self.train_summary_writer.add_summary(sess_output[-2], cur_step)
+            # self.train_summary_writer.flush()
 
             if cur_step > 0 and cur_step % self.train_log_interval == 0:
 
                 print("[step %d] training loss = %f, accuracy = %.6f, lr = %.6f" % (cur_step, loss, accuracy, self.lr))
                 # log for tensorboard
-                custom_summaries = [
-                    tf.Summary.Value(tag='loss', simple_value=loss),
-                    tf.Summary.Value(tag='accuracy', simple_value=accuracy),
-                    tf.Summary.Value(tag='learning rate', simple_value=self.lr),
-                ]
-                self.train_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
-                self.train_summary_writer.flush()
+                # custom_summaries = [
+                #     tf.Summary.Value(tag='loss', simple_value=loss),
+                #     tf.Summary.Value(tag='accuracy', simple_value=accuracy),
+                #     tf.Summary.Value(tag='learning rate', simple_value=self.lr),
+                # ]
+                # self.train_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
+                # self.train_summary_writer.flush()
 
             #     # reset local accumulations
             #     accum_loss = .0
