@@ -23,7 +23,7 @@ class DenseNet(object):
             shape=[self.batch_size, self.image_info.height, self.image_info.width, self.image_info.channel],
             name="image_placeholder")
 
-        self.target_placeholder = tf.placeholder(dtype=tf.int32,
+        self.target_placeholder = tf.placeholder(dtype=tf.int64,
                                                  shape=[self.batch_size,],
                                                  name="target_placeholder")
 
@@ -38,7 +38,7 @@ class DenseNet(object):
             self.lr_placeholder, self.nesterov_momentum, use_nesterov=True
         ).minimize(self.cost + self.loss * self.weight_decay, global_step=self.global_step)
 
-        correct_prediction = tf.equal(tf.argmax(self.prediction, 1), tf.arg_max(self.target_placeholder, 1))
+        correct_prediction = tf.equal(tf.argmax(self.prediction, 1), self.target_placeholder)
 
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
