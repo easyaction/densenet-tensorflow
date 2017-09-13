@@ -23,7 +23,7 @@ class DenseNet(object):
             shape=[self.batch_size, self.image_info.height, self.image_info.width, self.image_info.channel],
             name="image_placeholder")
 
-        self.target_placeholder = tf.placeholder(dtype=tf.int32,
+        self.target_placeholder = tf.placeholder(dtype=tf.int64,
                                                  shape=[self.batch_size,],
                                                  name="target_placeholder")
 
@@ -34,13 +34,16 @@ class DenseNet(object):
             tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
         self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables()])
 
+        tf.summary.scalar("loss/classification",self.loss)
+
         self.train_op = tf.train.MomentumOptimizer(
             self.lr_placeholder, self.nesterov_momentum, use_nesterov=True
         ).minimize(self.cost + self.loss * self.weight_decay, global_step=self.global_step)
 
-        correct_prediction = tf.equal(tf.argmax(self.prediction, 1), tf.arg_max(self.target_placeholder, 1))
+        self.correct_prediction = tf.equal(tf.argmax(self.prediction, 1), self.target_placeholder)
 
-        self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, tf.float32))
+
 
     def bottleneck_composite_layer(self, input_tensor, in_channels, out_channels, name, is_training=True):
         with tf.variable_scope(name):
@@ -117,3 +120,5 @@ class DenseNet(object):
         logits = self.classification_layer(output_t, name="classL", keep_prob=self.keep_prob, is_training=is_training)
 
         return logits
+
+#    def build_loss(self, output_t, target):

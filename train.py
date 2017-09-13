@@ -5,7 +5,7 @@ import cifar_loader
 from loader import *
 # from cifar_loader import *
 
-import shutil, os
+import shutil, os, sys
 import collections
 
 tf.app.flags.DEFINE_string('data_path', './dataset', 'Directory path to read the data files')
@@ -19,6 +19,9 @@ tf.app.flags.DEFINE_float('lr_decay_ratio', 0.95, 'ratio for decaying learning r
 tf.app.flags.DEFINE_integer('lr_decay_interval', 500, 'step interval for decaying learning rate')
 tf.app.flags.DEFINE_integer('train_log_interval', 50, 'step interval for triggering print logs of train')
 tf.app.flags.DEFINE_integer('valid_log_interval', 500, 'step interval for triggering validation')
+tf.app.flags.DEFINE_integer('eval_interval', 500, 'step interval for triggering validation')
+tf.app.flags.DEFINE_integer('save_interval', 2500, 'step interval for triggering validation')
+tf.app.flags.DEFINE_integer('slack_interval', 5000, 'step interval for triggering validation')
 
 ImageInfo = collections.namedtuple("ImageInfo", ['width', 'height', 'channel'])
 mnist_image_info = ImageInfo(width=28, height=28, channel=1)
@@ -42,6 +45,7 @@ class Train:
         self.lr_decay_ratio = FLAGS.lr_decay_ratio
         self.train_log_interval = FLAGS.train_log_interval
         self.valid_log_interval = FLAGS.valid_log_interval
+        self.save_interval = FLAGS.save_interval
 
 
 
@@ -91,6 +95,11 @@ class Train:
 
     def train(self):
         self.train_loader.reset()
+        save_interval = self.save_interval
+        accum_loss = .0
+        accum_correct_count = .0
+        last_valid_loss = sys.float_info.max
+        last_valid_accuracy = .0
 
         while True:
             batch_data = self.train_loader.get_batch()
@@ -101,8 +110,8 @@ class Train:
             sess_input = [
                 self.model.train_op,
                 self.model.loss,
-                self.model.accuracy,
-                # self.summ,
+                self.model.correct_prediction,
+                self.summ,
                 self.model.global_step,
             ]
             sess_output = self.sess.run(
@@ -115,67 +124,95 @@ class Train:
             )
 
             cur_step = sess_output[-1]
-            loss = sess_output[1]
-            accuracy = sess_output[2]
+            accum_loss += sess_output[1]
+            accum_correct_count += sess_output[2]
 
-            # self.train_summary_writer.add_summary(sess_output[-2], cur_step)
-            # self.train_summary_writer.flush()
+            self.train_summary_writer.add_summary(sess_output[-2], cur_step)
+            self.train_summary_writer.flush()
 
             if cur_step > 0 and cur_step % self.train_log_interval == 0:
+                loss = accum_loss / self.train_log_interval
+                accuracy = accum_correct_count / (self.batch_size * self.train_log_interval)
 
                 print("[step %d] training loss = %f, accuracy = %.6f, lr = %.6f" % (cur_step, loss, accuracy, self.lr))
                 # log for tensorboard
-                # custom_summaries = [
-                #     tf.Summary.Value(tag='loss', simple_value=loss),
-                #     tf.Summary.Value(tag='accuracy', simple_value=accuracy),
-                #     tf.Summary.Value(tag='learning rate', simple_value=self.lr),
-                # ]
-                # self.train_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
-                # self.train_summary_writer.flush()
+                custom_summaries = [
+                    tf.Summary.Value(tag='loss', simple_value=loss),
+                    tf.Summary.Value(tag='accuracy', simple_value=accuracy),
+                    tf.Summary.Value(tag='learning rate', simple_value=self.lr),
+                ]
+                self.train_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
+                self.train_summary_writer.flush()
 
-            #     # reset local accumulations
-            #     accum_loss = .0
-            #     accum_correct_count = .0
-            #     accum_conf_matrix = None
-            #
-            # if cur_step > 0 and cur_step % self.valid_log_interval == 0:
-            #     self.valid_loader.reset()
-            #
-            #     step_counter = .0
-            #     valid_accum_cls_loss = .0
-            #     valid_accum_correct_count = .0
-            #     valid_accum_conf_matrix = None
-            #
-            #     while True:
-            #         batch_data = self.valid_loader.get_batch()
-            #         if batch_data is None:
-            #             # print('%d validation complete' % self.epoch_counter)
-            #             break
-            #
-            #         sess_input = [
-            #             self.model.loss,
-            #             self.model.accuracy,
-            #         ]
-            #         sess_output = self.sess.run(
-            #             fetches=sess_input,
-            #             feed_dict={
-            #                 self.model.image_placeholder: batch_data.images,
-            #                 self.model.target_placeholder: batch_data.labels,
-            #             }
-            #         )
-            #
-            #
-            #
-            #     # log for tensorboard
-            #     cur_step = self.sess.run(self.model.global_step)
-            #     custom_summaries = [
-            #         tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
-            #         tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
-            #     ]
-            #     self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
-            #     self.valid_summary_writer.flush()
-            #
-            #     print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+                # reset local accumulations
+                accum_loss = .0
+                accum_correct_count = .0
+
+
+            if cur_step > 0 and cur_step % self.valid_log_interval == 0:
+                self.valid_loader.reset()
+
+                step_counter = .0
+                valid_accum_cls_loss = .0
+                valid_accum_correct_count = .0
+
+                while True:
+                    batch_data = self.valid_loader.get_batch()
+                    if batch_data is None:
+                        # print('%d validation complete' % self.epoch_counter)
+                        break
+
+                    sess_input = [
+                        self.model.loss,
+                        self.model.correct_prediction,
+                    ]
+                    sess_output = self.sess.run(
+                        fetches=sess_input,
+                        feed_dict={
+                            self.model.image_placeholder: batch_data.images,
+                            self.model.target_placeholder: batch_data.labels,
+                        }
+                    )
+
+                    valid_accum_cls_loss += sess_output[0]
+                    valid_accum_correct_count += sess_output[1]
+
+                    step_counter += 1
+
+                cur_valid_loss = valid_accum_cls_loss / step_counter
+                cur_valid_accuracy = valid_accum_correct_count / (step_counter * self.batch_size)
+
+                # log for tensorboard
+                cur_step = self.sess.run(self.model.global_step)
+                custom_summaries = [
+                    tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
+                    tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
+                ]
+                self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
+                self.valid_summary_writer.flush()
+
+                print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+
+                if cur_step % save_interval == 0:
+                    if cur_valid_loss < last_valid_loss:
+                        # Save the variables to disk.
+                        save_path = self.saver.save(self.sess, self.CHECKPOINT_FILEPATH+"_"+str(cur_valid_loss),
+                                                    global_step=cur_step)
+                        print("Model saved in file: %s" % save_path)
+                        # self.saver.save(sess,
+                        #                 os.path.join('/data2/CleanScoringData/TrainingModel/0602_model', 'model.ckpt_' +
+                        #                              str(cur_valid_loss)),
+                        #                 global_step=step)
+                        last_valid_loss, last_valid_accuracy = cur_valid_loss, cur_valid_accuracy
+                        valid_save_skip_count = 0
+                    else:
+                        if valid_save_skip_count > 50:
+                            save_path = self.saver.save(self.sess, self.CHECKPOINT_FILEPATH+"_"+str(cur_valid_loss),
+                                                        global_step=cur_step)
+                            print("Model saved in file: %s" % save_path)
+                            return
+                        else:
+                            valid_save_skip_count += 1
 
             if cur_step > 0 and cur_step % self.lr_decay_interval == 0:
                 self.lr *= self.lr_decay_ratio
