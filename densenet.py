@@ -32,7 +32,7 @@ class DenseNet(object):
 
         self.cost = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
-        self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables()])
+        self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables() if 'weight' in var.name])
 
         tf.summary.scalar("loss/classification",self.loss)
 

@@ -47,14 +47,9 @@ class Train:
         self.valid_log_interval = FLAGS.valid_log_interval
         self.save_interval = FLAGS.save_interval
 
-
-
         # NOTE : Data = CIFAR-10
         self.train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
         self.valid_loader = Cifar10Loader(data_path=os.path.join("data/val"), default_batch_size=self.batch_size)
-
-
-
 
         # NOTE : Data = MNIST
         # self.train_labeled_loader = MnistLoader(
@@ -89,6 +84,7 @@ class Train:
             'log/valid',
             self.sess.graph
         )
+        self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
 
         self.summ = tf.summary.merge_all()
@@ -97,7 +93,7 @@ class Train:
         self.train_loader.reset()
         save_interval = self.save_interval
         accum_loss = .0
-        accum_correct_count = .0
+        accum_correct_prediction = .0
         last_valid_loss = sys.float_info.max
         last_valid_accuracy = .0
 
@@ -125,14 +121,14 @@ class Train:
 
             cur_step = sess_output[-1]
             accum_loss += sess_output[1]
-            accum_correct_count += sess_output[2]
+            accum_correct_prediction = np.sum(sess_output[2])
 
             self.train_summary_writer.add_summary(sess_output[-2], cur_step)
             self.train_summary_writer.flush()
 
             if cur_step > 0 and cur_step % self.train_log_interval == 0:
                 loss = accum_loss / self.train_log_interval
-                accuracy = accum_correct_count / (self.batch_size * self.train_log_interval)
+                accuracy = accum_correct_prediction / (self.batch_size * self.train_log_interval)
 
                 print("[step %d] training loss = %f, accuracy = %.6f, lr = %.6f" % (cur_step, loss, accuracy, self.lr))
                 # log for tensorboard
@@ -154,7 +150,7 @@ class Train:
 
                 step_counter = .0
                 valid_accum_cls_loss = .0
-                valid_accum_correct_count = .0
+                valid_accum_correct_prediction = .0
 
                 while True:
                     batch_data = self.valid_loader.get_batch()
@@ -175,12 +171,12 @@ class Train:
                     )
 
                     valid_accum_cls_loss += sess_output[0]
-                    valid_accum_correct_count += sess_output[1]
+                    valid_accum_correct_prediction += np.sum(sess_output[1])
 
                     step_counter += 1
 
                 cur_valid_loss = valid_accum_cls_loss / step_counter
-                cur_valid_accuracy = valid_accum_correct_count / (step_counter * self.batch_size)
+                cur_valid_accuracy = valid_accum_correct_prediction / (step_counter * self.batch_size)
 
                 # log for tensorboard
                 cur_step = self.sess.run(self.model.global_step)
