@@ -50,6 +50,8 @@ class Train:
         self.valid_log_interval = FLAGS.valid_log_interval
         self.save_interval = FLAGS.save_interval
         self.train_continue = FLAGS.train_continue
+        self.checkpoint_dir = FLAGS.checkpoint_dir
+        self.checkpoint_filepath = os.path.join(FLAGS.train_continue,'densenet')
 
         # NOTE : Data = CIFAR-10
         self.train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
@@ -111,6 +113,7 @@ class Train:
         accum_correct_prediction = .0
         last_valid_loss = sys.float_info.max
         last_valid_accuracy = .0
+        valid_save_skip_count = 0
 
         while True:
             batch_data = self.train_loader.get_batch()
@@ -207,7 +210,7 @@ class Train:
                 if cur_step % save_interval == 0:
                     if cur_valid_loss < last_valid_loss:
                         # Save the variables to disk.
-                        save_path = self.saver.save(self.sess, self.CHECKPOINT_FILEPATH+"_"+str(cur_valid_loss),
+                        save_path = self.saver.save(self.sess, self.checkpoint_filepath+"_"+str(cur_valid_loss),
                                                     global_step=cur_step)
                         print("Model saved in file: %s" % save_path)
                         # self.saver.save(sess,
@@ -218,7 +221,7 @@ class Train:
                         valid_save_skip_count = 0
                     else:
                         if valid_save_skip_count > 50:
-                            save_path = self.saver.save(self.sess, self.CHECKPOINT_FILEPATH+"_"+str(cur_valid_loss),
+                            save_path = self.saver.save(self.sess, self.checkpoint_filepath+"_"+str(cur_valid_loss),
                                                         global_step=cur_step)
                             print("Model saved in file: %s" % save_path)
                             return
