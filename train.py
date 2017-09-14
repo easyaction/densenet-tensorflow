@@ -51,7 +51,7 @@ class Train:
         self.save_interval = FLAGS.save_interval
         self.train_continue = FLAGS.train_continue
         self.checkpoint_dir = FLAGS.checkpoint_dir
-        self.checkpoint_filepath = os.path.join(FLAGS.train_continue,'densenet')
+        self.checkpoint_filepath = os.path.join(FLAGS.checkpoint_dir,'densenet')
 
         # NOTE : Data = CIFAR-10
         self.train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
