@@ -111,10 +111,10 @@ class DenseNet(object):
         output_t = tf.nn.max_pool(output_t, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID", name="max_pool0")
 
         for i in range(self.total_blocks):
-            output_t, out_channels = self.dense_block(output_t, l=self.layers_per_block, k=self.growth_rate, name="denseB_%d" % 1,
+            output_t, out_channels = self.dense_block(output_t, l=self.layers_per_block, k=self.growth_rate, name="denseB_%d" % i+1,
                                                       is_training=is_training)
             if i != self.total_blocks - 1:
-                output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 1,
+                output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % i+1,
                                              is_training=is_training)
 
         logits = self.classification_layer(output_t, name="classL", keep_prob=self.keep_prob, is_training=is_training)

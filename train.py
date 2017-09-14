@@ -134,7 +134,7 @@ class Train:
 
             cur_step = sess_output[-1]
             accum_loss += sess_output[1]
-            accum_correct_prediction = np.sum(sess_output[2])
+            accum_correct_prediction += np.sum(sess_output[2])
 
             self.train_summary_writer.add_summary(sess_output[-2], cur_step)
             self.train_summary_writer.flush()
@@ -155,7 +155,7 @@ class Train:
 
                 # reset local accumulations
                 accum_loss = .0
-                accum_correct_count = .0
+                accum_correct_prediction = .0
 
 
             if cur_step > 0 and cur_step % self.valid_log_interval == 0:
@@ -172,7 +172,7 @@ class Train:
                         break
 
                     sess_input = [
-                        self.model.loss,
+                        self.model.cross_entropy,
                         self.model.correct_prediction,
                     ]
                     sess_output = self.sess.run(
