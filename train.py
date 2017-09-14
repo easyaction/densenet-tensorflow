@@ -70,7 +70,9 @@ class Train:
         #     image_info=self.img_info,
         #     dataset="validation")
 
-        self.model = DenseNet(batch_size=self.batch_size,num_classes=self.num_classes, keep_prob=1.0,image_info=cifar10_image_info, growth_rate=12)
+        self.model = DenseNet(batch_size=self.batch_size,num_classes=self.num_classes,
+                              total_blocks=3, depth = 40,
+                              keep_prob=0.8,image_info=cifar10_image_info, growth_rate=12)
 
         self.sess = tf.Session()
 
@@ -116,7 +118,7 @@ class Train:
 
             sess_input = [
                 self.model.train_op,
-                self.model.loss,
+                self.model.cross_entropy,
                 self.model.correct_prediction,
                 self.summ,
                 self.model.global_step,

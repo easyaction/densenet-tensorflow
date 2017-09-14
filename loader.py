@@ -55,7 +55,8 @@ class Cifar10Loader:
 
         batch = BatchTuple(
             images=np.zeros(
-                dtype=np.uint8,
+                # dtype=np.uint8,
+                dtype=np.float32,
                 shape=[batch_size, self.image_info['height'], self.image_info['width'], self.image_info['channel']]
             ),
             labels=np.zeros(dtype=np.int32, shape=[batch_size])

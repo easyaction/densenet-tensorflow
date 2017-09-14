@@ -5,13 +5,16 @@ from layer import *
 
 
 class DenseNet(object):
-    def __init__(self, batch_size, num_classes, image_info, growth_rate, keep_prob):
+    def __init__(self, batch_size, num_classes, image_info, depth, growth_rate, total_blocks, keep_prob):
         self.batch_size = batch_size
         self.num_classes = num_classes
         self.keep_prob = keep_prob
         self.growth_rate = growth_rate
         self.nesterov_momentum = 0.9
         self.weight_decay = 0.0001
+        self.depth = depth
+        self.total_blocks = total_blocks
+        self.layers_per_block = (depth - total_blocks - 1) // total_blocks
 
         self.global_step = tf.Variable(0, trainable=False, name="global_step")
         self.lr_placeholder = tf.placeholder(dtype=tf.float32, name='learning_rate')
@@ -30,15 +33,18 @@ class DenseNet(object):
         logits = self.build_densenet(self.image_placeholder)
         self.prediction = tf.nn.softmax(logits)
 
-        self.cost = tf.reduce_mean(
+        cross_entropy = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
+        self.cross_entropy = cross_entropy
+
         self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables() if 'weight' in var])
 
         tf.summary.scalar("loss/classification",self.loss)
 
-        self.train_op = tf.train.MomentumOptimizer(
+        optimizer = tf.train.MomentumOptimizer(
             self.lr_placeholder, self.nesterov_momentum, use_nesterov=True
-        ).minimize(self.cost + self.loss * self.weight_decay, global_step=self.global_step)
+        )
+        self.train_op = optimizer.minimize(cross_entropy + self.loss * self.weight_decay, global_step=self.global_step)
 
         self.correct_prediction = tf.equal(tf.argmax(self.prediction, 1), self.target_placeholder)
 
@@ -90,7 +96,7 @@ class DenseNet(object):
         with tf.variable_scope(name):
             output_t = input_tensor
             in_channels = input_tensor.get_shape()[-1]
-            for i in range(0, l):
+            for i in range(l):
                 temp = self.bottleneck_composite_layer(output_t, in_channels=in_channels, out_channels=k,
                                                        name="bottle_composite_%d" % i,
                                                        is_training=is_training)
@@ -104,18 +110,12 @@ class DenseNet(object):
         output_t = conv2d(input_tensor, [7, 7, in_channels, self.growth_rate * 2], stride_size=2, padding="SAME", name="conv0")
         output_t = tf.nn.max_pool(output_t, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID", name="max_pool0")
 
-        output_t, out_channels = self.dense_block(output_t, l=6, k=self.growth_rate, name="denseB_%d" % 1,
-                                                  is_training=is_training)
-        output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 1,
-                                         is_training=is_training)
-
-        output_t, out_channels = self.dense_block(output_t, l=12, k=self.growth_rate, name="denseB_%d" % 2,
-                                                  is_training=is_training)
-        output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 2,
-                                         is_training=is_training)
-
-        output_t, out_channels = self.dense_block(output_t, l=24, k=self.growth_rate, name="denseB_%d" % 3,
-                                                  is_training=is_training)
+        for i in range(self.total_blocks):
+            output_t, out_channels = self.dense_block(output_t, l=self.layers_per_block, k=self.growth_rate, name="denseB_%d" % 1,
+                                                      is_training=is_training)
+            if i != self.total_blocks - 1:
+                output_t = self.transition_layer(output_t, in_channels=out_channels, c_rate=0.5, name="transL_%d" % 1,
+                                             is_training=is_training)
 
         logits = self.classification_layer(output_t, name="classL", keep_prob=self.keep_prob, is_training=is_training)
 
