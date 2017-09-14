@@ -14,7 +14,8 @@ tf.app.flags.DEFINE_string('data_path', './dataset', 'Directory path to read the
 tf.app.flags.DEFINE_string('checkpoint_dir', './model', 'Directory path to save checkpoint files')
 
 tf.app.flags.DEFINE_integer('batch_size', 64, 'mini-batch size for training')
-tf.app.flags.DEFINE_boolean('num_classes',10,'using tf.float16 in dataset')
+tf.app.flags.DEFINE_integer('num_classes', 10,'using tf.float16 in dataset')
+tf.app.flags.DEFINE_boolean('train_continue', False, 'flag for continue training from latest checkpoint')
 
 tf.app.flags.DEFINE_float('lr', 0.1, 'initial learning rate')
 tf.app.flags.DEFINE_float('lr_decay_ratio', 0.1, 'ratio for decaying learning rate')
@@ -48,6 +49,7 @@ class Train:
         self.train_log_interval = FLAGS.train_log_interval
         self.valid_log_interval = FLAGS.valid_log_interval
         self.save_interval = FLAGS.save_interval
+        self.train_continue = FLAGS.train_continue
 
         # NOTE : Data = CIFAR-10
         self.train_loader = Cifar10Loader(data_path=os.path.join("data/train"), default_batch_size=self.batch_size)
