@@ -91,9 +91,9 @@ class Train:
         self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
 
-        if self.TRAIN_CONTINUE:
+        if self.train_continue:
             print("======== Restoring from saved checkpoint ========")
-            save_path = self.checkpoint_
+            save_path = self.checkpoint_dir
             ckpt = tf.train.get_checkpoint_state(save_path)
             if ckpt and ckpt.model_checkpoint_path:
                 # Restores from checkpoint
