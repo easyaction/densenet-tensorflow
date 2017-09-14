@@ -8,15 +8,17 @@ from loader import *
 import shutil, os, sys
 import collections
 
+root_path = os.path.dirname(__file__)
+
 tf.app.flags.DEFINE_string('data_path', './dataset', 'Directory path to read the data files')
-tf.app.flags.DEFINE_string('checkpoint_path', 'model', 'Directory path to save checkpoint files')
+tf.app.flags.DEFINE_string('checkpoint_dir', './model', 'Directory path to save checkpoint files')
 
 tf.app.flags.DEFINE_integer('batch_size', 64, 'mini-batch size for training')
 tf.app.flags.DEFINE_boolean('num_classes',10,'using tf.float16 in dataset')
 
 tf.app.flags.DEFINE_float('lr', 0.1, 'initial learning rate')
-tf.app.flags.DEFINE_float('lr_decay_ratio', 0.95, 'ratio for decaying learning rate')
-tf.app.flags.DEFINE_integer('lr_decay_interval', 1000, 'step interval for decaying learning rate')
+tf.app.flags.DEFINE_float('lr_decay_ratio', 0.1, 'ratio for decaying learning rate')
+tf.app.flags.DEFINE_integer('lr_decay_interval', 23000, 'step interval for decaying learning rate')
 tf.app.flags.DEFINE_integer('train_log_interval', 50, 'step interval for triggering print logs of train')
 tf.app.flags.DEFINE_integer('valid_log_interval', 500, 'step interval for triggering validation')
 tf.app.flags.DEFINE_integer('eval_interval', 500, 'step interval for triggering validation')
@@ -86,6 +88,15 @@ class Train:
         )
         self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
+
+        if self.TRAIN_CONTINUE:
+            print("======== Restoring from saved checkpoint ========")
+            save_path = self.checkpoint_
+            ckpt = tf.train.get_checkpoint_state(save_path)
+            if ckpt and ckpt.model_checkpoint_path:
+                # Restores from checkpoint
+                print("======>" + ckpt.model_checkpoint_path)
+                self.saver.restore(self.sess, ckpt.model_checkpoint_path)
 
         self.summ = tf.summary.merge_all()
 

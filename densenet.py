@@ -32,7 +32,7 @@ class DenseNet(object):
 
         self.cost = tf.reduce_mean(
             tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=self.target_placeholder))
-        self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables() if 'weight' in var.name])
+        self.loss = tf.add_n([tf.nn.l2_loss(var) for var in tf.trainable_variables() if 'weight' in var])
 
         tf.summary.scalar("loss/classification",self.loss)
 
@@ -101,7 +101,7 @@ class DenseNet(object):
     def build_densenet(self, input_tensor, is_training=True, name="densenet"):
         in_channels = input_tensor.get_shape()[3]
 
-        output_t = conv2d(input_tensor, [7, 7, in_channels, 16], stride_size=2, padding="SAME", name="conv0")
+        output_t = conv2d(input_tensor, [7, 7, in_channels, self.growth_rate * 2], stride_size=2, padding="SAME", name="conv0")
         output_t = tf.nn.max_pool(output_t, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1], padding="VALID", name="max_pool0")
 
         output_t, out_channels = self.dense_block(output_t, l=6, k=self.growth_rate, name="denseB_%d" % 1,
