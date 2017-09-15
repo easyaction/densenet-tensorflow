@@ -19,7 +19,8 @@ tf.app.flags.DEFINE_boolean('train_continue', False, 'flag for continue training
 
 tf.app.flags.DEFINE_float('lr', 0.1, 'initial learning rate')
 tf.app.flags.DEFINE_float('lr_decay_ratio', 0.1, 'ratio for decaying learning rate')
-tf.app.flags.DEFINE_integer('lr_decay_interval', 23000, 'step interval for decaying learning rate')
+tf.app.flags.DEFINE_integer('lr_decay_interval_1', 117187, 'step interval for decaying learning rate')
+tf.app.flags.DEFINE_integer('lr_decay_interval_2', 175790, 'step interval for decaying learning rate')
 tf.app.flags.DEFINE_integer('train_log_interval', 50, 'step interval for triggering print logs of train')
 tf.app.flags.DEFINE_integer('valid_log_interval', 500, 'step interval for triggering validation')
 tf.app.flags.DEFINE_integer('eval_interval', 500, 'step interval for triggering validation')
@@ -44,7 +45,8 @@ class Train:
         self.num_classes = FLAGS.num_classes
 
         self.lr = FLAGS.lr
-        self.lr_decay_interval = FLAGS.lr_decay_interval
+        self.lr_decay_interval_1 = FLAGS.lr_decay_interval_1
+        self.lr_decay_interval_2 = FLAGS.lr_decay_interval_2
         self.lr_decay_ratio = FLAGS.lr_decay_ratio
         self.train_log_interval = FLAGS.train_log_interval
         self.valid_log_interval = FLAGS.valid_log_interval
@@ -164,48 +166,7 @@ class Train:
 
 
             if cur_step > 0 and cur_step % self.valid_log_interval == 0:
-                self.valid_loader.reset()
-
-                step_counter = .0
-                valid_accum_cls_loss = .0
-                valid_accum_correct_prediction = .0
-
-                while True:
-                    batch_data = self.valid_loader.get_batch()
-                    if batch_data is None:
-                        # print('%d validation complete' % self.epoch_counter)
-                        break
-
-                    sess_input = [
-                        self.model.cross_entropy,
-                        self.model.correct_prediction,
-                    ]
-                    sess_output = self.sess.run(
-                        fetches=sess_input,
-                        feed_dict={
-                            self.model.image_placeholder: batch_data.images,
-                            self.model.target_placeholder: batch_data.labels,
-                        }
-                    )
-
-                    valid_accum_cls_loss += sess_output[0]
-                    valid_accum_correct_prediction += np.sum(sess_output[1])
-
-                    step_counter += 1
-
-                cur_valid_loss = valid_accum_cls_loss / step_counter
-                cur_valid_accuracy = valid_accum_correct_prediction / (step_counter * self.batch_size)
-
-                # log for tensorboard
-                cur_step = self.sess.run(self.model.global_step)
-                custom_summaries = [
-                    tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
-                    tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
-                ]
-                self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
-                self.valid_summary_writer.flush()
-
-                print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+                cur_valid_loss, cur_valid_accuracy = self.validation()
 
                 if cur_step % save_interval == 0:
                     if cur_valid_loss < last_valid_loss:
@@ -228,9 +189,63 @@ class Train:
                         else:
                             valid_save_skip_count += 1
 
-            if cur_step > 0 and cur_step % self.lr_decay_interval == 0:
+            # if cur_step > 0 and cur_step % self.lr_decay_interval == 0:
+            #     self.lr *= self.lr_decay_ratio
+            if cur_step > 0 and (cur_step % self.lr_decay_interval_1 == 0 or cur_step % self.lr_decay_interval_2 == 0) :
                 self.lr *= self.lr_decay_ratio
+            if cur_step > 234375:
+                print("Training complete")
+                cur_valid_loss, cur_valid_accuracy = self.validation()
+                print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+                save_path = self.saver.save(self.sess, self.checkpoint_filepath+"_"+str(cur_valid_loss),
+                                            global_step=cur_step)
+                print("Model saved in file: %s" % save_path)
+                break
 
+    def validation(self):
+        self.valid_loader.reset()
+
+        step_counter = .0
+        valid_accum_cls_loss = .0
+        valid_accum_correct_prediction = .0
+
+        while True:
+            batch_data = self.valid_loader.get_batch()
+            if batch_data is None:
+                # print('%d validation complete' % self.epoch_counter)
+                break
+
+            sess_input = [
+                self.model.cross_entropy,
+                self.model.correct_prediction,
+            ]
+            sess_output = self.sess.run(
+                fetches=sess_input,
+                feed_dict={
+                    self.model.image_placeholder: batch_data.images,
+                    self.model.target_placeholder: batch_data.labels,
+                }
+            )
+
+            valid_accum_cls_loss += sess_output[0]
+            valid_accum_correct_prediction += np.sum(sess_output[1])
+
+            step_counter += 1
+
+        cur_valid_loss = valid_accum_cls_loss / step_counter
+        cur_valid_accuracy = valid_accum_correct_prediction / (step_counter * self.batch_size)
+
+        # log for tensorboard
+        cur_step = self.sess.run(self.model.global_step)
+        custom_summaries = [
+            tf.Summary.Value(tag='loss/classification', simple_value=cur_valid_loss),
+            tf.Summary.Value(tag='accuracy', simple_value=cur_valid_accuracy),
+        ]
+        self.valid_summary_writer.add_summary(tf.Summary(value=custom_summaries), cur_step)
+        self.valid_summary_writer.flush()
+
+        print("... validation loss = %f, accuracy = %.6f" % (cur_valid_loss, cur_valid_accuracy))
+        return cur_valid_loss, cur_valid_accuracy
 
 def main(argv):
     learner = Train()
